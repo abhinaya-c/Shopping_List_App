@@ -44,7 +44,7 @@ data class ShoppingItems(
 )
 
 @Composable
-fun ShoppingItemEditor (item: ShoppingItems, onEditComplete : () -> Unit){
+fun ShoppingItemEditor (item: ShoppingItems, onEditComplete : (String, Int) -> Unit){ // Changed here
     var editedName by remember {mutableStateOf(item.name)}
     var editedQuantity by remember {mutableStateOf(item.quantity.toString())}
     var isEditing by remember {mutableStateOf(item.isEditing)}
@@ -66,15 +66,14 @@ fun ShoppingItemEditor (item: ShoppingItems, onEditComplete : () -> Unit){
             )
             Button(
                 onClick = {
-                isEditing = false
-                onEditComplete(editedName,editedQuantity.toIntOrNull() ?: 1)
-            }
+                    isEditing = false // This state variable seems local and doesn't affect the parent
+                    onEditComplete(editedName,editedQuantity.toIntOrNull() ?: 1)
+                }
             ){
                 Text("Save")
             }
         }
     }
-
 }
 
 
@@ -108,7 +107,27 @@ fun ShoppingListApp (){
             .padding(16.dp))
         {
             items (sItems){
-                ShoppingListItems(it, {},{})
+                item ->
+                if (item.isEditing){
+                    ShoppingItemEditor(item = item, onEditComplete = {
+                        editedName, editedQuantity ->
+                        sItems = sItems.map { it.copy(isEditing = false) }
+                        val editedItem = sItems.find { it.id == item.id }
+                        editedItem?.let {
+                            it.name = editedName
+                            it.quantity = editedQuantity
+                        }
+                    } )
+                }
+                else {
+                    ShoppingListItems(item= item,
+                        onEditClick = {
+                        // finding out which item we are editing and changing "isEditing Boolean true".
+                        sItems = sItems.map { it.copy(isEditing = it.id == item.id) }
+                    }, onDeleteClick = {
+                        sItems = sItems - item
+                        })
+                }
             }
         }
     }
@@ -118,6 +137,11 @@ fun ShoppingListApp (){
             confirmButton = {
                 Row (modifier = Modifier.fillMaxWidth().padding(8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween) {
+                    Button(onClick = {
+                        showDialog = false
+                    } ) {
+                        Text("Cancel")
+                    }
                     Button(onClick = {
                         if(itemName.isNotBlank()){
                             var newItem = ShoppingItems(
@@ -132,11 +156,7 @@ fun ShoppingListApp (){
                     } ) {
                         Text("Add")
                     }
-                    Button(onClick = {
-                        showDialog = false
-                    } ) {
-                        Text("Cancel")
-                    }
+
                 }
             },
             title = { Text("Add Shopping Item") },
